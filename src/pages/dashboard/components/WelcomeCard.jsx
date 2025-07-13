@@ -51,7 +51,7 @@ const WelcomeCard = ({ userName, currentStreak, totalTests, currentRank }) => {
         </div>
         <div className="bg-white rounded-academic p-4 text-center shadow-academic">
           <div className="text-2xl font-heading font-bold text-success mb-1">
-            #{currentRank.toLocaleString()}
+            #{currentRank?.toLocaleString() || 'N/A'}
           </div>
           <div className="text-sm text-text-secondary font-caption">
             Current Rank

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useUserContext } from '../../context/UserContext';
+import { generateEnhancedStudyPlan, generatePersonalizedMotivation } from '../../services/openRouterService';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import WeeklyPlanCard from './components/WeeklyPlanCard';
@@ -10,9 +12,12 @@ import StudyStreakTracker from './components/StudyStreakTracker';
 
 const AIStudyPlanner = () => {
   const navigate = useNavigate();
+  const { profile, performanceData, studyPlan, setStudyPlan } = useUserContext();
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // timeline, calendar, analytics
   const [isMobile, setIsMobile] = useState(false);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [aiMotivation, setAiMotivation] = useState(null);
 
   // Mock data for study plan
   const mockWeeks = [
@@ -459,8 +464,40 @@ const AIStudyPlanner = () => {
       setSelectedWeek(weeks[0]);
     }
     
+    // Load personalized AI content on mount
+    loadPersonalizedContent();
+    
     return () => window.removeEventListener('resize', checkMobile);
   }, [weeks]);
+
+  const loadPersonalizedContent = async () => {
+    try {
+      setIsLoadingRecommendations(true);
+      
+      // Generate personalized motivation
+      const motivationContext = {
+        mood: 'motivated',
+        studyStreak: performanceData.studyStreak || 0,
+        recentAchievement: performanceData.recentTests?.length > 0 ? 'recent_test_completion' : 'none',
+        currentChallenge: performanceData.weakAreas?.[0]?.name || 'none',
+        examDate: profile.examDate || 'Not set',
+        progressLevel: profile.currentLevel || 'Intermediate'
+      };
+      
+      const motivation = await generatePersonalizedMotivation(motivationContext);
+      setAiMotivation(motivation);
+      
+      // Generate enhanced study plan if user data is available
+      if (profile && performanceData) {
+        const enhancedPlan = await generateEnhancedStudyPlan(profile, performanceData);
+        setStudyPlan(enhancedPlan);
+      }
+    } catch (error) {
+      console.error('Error loading personalized content:', error);
+    } finally {
+      setIsLoadingRecommendations(false);
+    }
+  };
 
   const handleTaskToggle = (weekId, dayId, taskId) => {
     setWeeks(prevWeeks => 
@@ -518,6 +555,23 @@ const AIStudyPlanner = () => {
 
   const renderMobileView = () => (
     <div className="space-y-6">
+      {/* Personalized Motivation Banner */}
+      {aiMotivation && (
+        <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-academic-lg p-4 border border-primary/20">
+          <div className="flex items-start space-x-3">
+            <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <Icon name="Sparkles" size={16} className="text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-text-primary mb-1">Your Daily Inspiration</h3>
+              <p className="text-sm text-text-secondary whitespace-pre-line">
+                {aiMotivation.content?.split('\n')[0] || 'Keep pushing forward! Every study session brings you closer to your goals.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* View Mode Selector */}
       <div className="flex space-x-1 bg-secondary-50 rounded-academic p-1">
         {[
@@ -552,6 +606,7 @@ const AIStudyPlanner = () => {
             recommendations={mockRecommendations}
             onApplyRecommendation={handleApplyRecommendation}
             onDismissRecommendation={handleDismissRecommendation}
+            isLoading={isLoadingRecommendations}
           />
           
           {weeks.map((week) => (
@@ -591,6 +646,23 @@ const AIStudyPlanner = () => {
     <div className="grid grid-cols-12 gap-6">
       {/* Left Column - Timeline and Recommendations */}
       <div className="col-span-4 space-y-6">
+        {/* Personalized Motivation Banner */}
+        {aiMotivation && (
+          <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-academic-lg p-6 border border-primary/20">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <Icon name="Sparkles" size={24} className="text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-text-primary mb-2">Welcome back, {profile.name}!</h3>
+                <p className="text-sm text-text-secondary whitespace-pre-line">
+                  {aiMotivation.content?.split('\n')[0] || 'Keep pushing forward! Every study session brings you closer to your goals.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <StudyStreakTracker 
           streakData={mockStreakData}
           onStreakGoalUpdate={handleStreakGoalUpdate}
@@ -600,6 +672,7 @@ const AIStudyPlanner = () => {
           recommendations={mockRecommendations}
           onApplyRecommendation={handleApplyRecommendation}
           onDismissRecommendation={handleDismissRecommendation}
+          isLoading={isLoadingRecommendations}
         />
         
         <div className="space-y-4">
@@ -635,8 +708,8 @@ const AIStudyPlanner = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-surface border-b border-border sticky top-16 z-30">
+      {/* Fixed Header - Changed from sticky to relative positioning */}
+      <div className="bg-surface border-b border-border relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -668,6 +741,14 @@ const AIStudyPlanner = () => {
               >
                 New Test
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadPersonalizedContent}
+                iconName="RefreshCw"
+                iconSize={16}
+                disabled={isLoadingRecommendations}
+              />
               <Button
                 variant="ghost"
                 size="sm"

@@ -21,6 +21,32 @@ const AnswerPalette = ({
     onNumericAnswerChange(value);
   };
 
+  // Safe mathematical expression evaluator
+  const evaluateExpression = (expression) => {
+    try {
+      // Remove spaces and validate characters
+      const cleanExpression = expression.replace(/\s/g, '');
+      
+      // Only allow numbers, operators, decimal points, and parentheses
+      if (!/^[0-9+\-*/.()%]+$/.test(cleanExpression)) {
+        throw new Error('Invalid characters');
+      }
+
+      // Simple expression evaluator using Function constructor (safer than eval)
+      // This approach is still safer than eval as it doesn't have access to local scope
+      const result = Function('"use strict"; return (' + cleanExpression + ')')();
+      
+      // Check for valid number result
+      if (typeof result !== 'number' || !isFinite(result)) {
+        throw new Error('Invalid result');
+      }
+      
+      return result;
+    } catch (error) {
+      throw new Error('Invalid expression');
+    }
+  };
+
   const calculatorButtons = [
     ['C', '±', '%', '÷'],
     ['7', '8', '9', '×'],
@@ -34,7 +60,8 @@ const AnswerPalette = ({
       setCalculatorValue('0');
     } else if (value === '=') {
       try {
-        const result = eval(calculatorValue.replace('×', '*').replace('÷', '/'));
+        const expression = calculatorValue.replace(/×/g, '*').replace(/÷/g, '/');
+        const result = evaluateExpression(expression);
         setCalculatorValue(result.toString());
       } catch (error) {
         setCalculatorValue('Error');

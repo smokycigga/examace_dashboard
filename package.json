@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@clerk/clerk-react": "^4.30.0",
     "@dhiwise/component-tagger": "^1.0.9",
     "@google/generative-ai": "^0.21.0",
     "@reduxjs/toolkit": "^2.6.1",
